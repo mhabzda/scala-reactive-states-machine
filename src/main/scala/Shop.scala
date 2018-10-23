@@ -83,9 +83,10 @@ object Checkout {
 
 class Checkout extends Actor with Timers {
   override def receive: Receive = {
-    case StartCheckout =>
+    case StartCheckout(cart: ActorRef) =>
       println("Checkout started in Checkout actor")
-      timers.startSingleTimer(CheckoutTimerKey, Checkout.Cancel, 3.second)
+      cart ! StartCheckout
+      timers.startSingleTimer(CheckoutTimerKey, Checkout.Cancel, 5.second)
       context become awaitWhileSelectingDelivery
   }
 
@@ -102,7 +103,7 @@ class Checkout extends Actor with Timers {
     case SelectPayment =>
       println("Payment selected")
       timers.cancel(CheckoutTimerKey)
-      timers.startSingleTimer(PaymentTimerKey, Checkout.Cancel, 3.second)
+      timers.startSingleTimer(PaymentTimerKey, Checkout.Cancel, 5.second)
       context become awaitInProcessingState
     case Checkout.Cancel =>
       println("Checkout closed, closing actor")
@@ -124,15 +125,48 @@ object ShopApp extends App {
   val cartActor: ActorRef = system.actorOf(Props[Cart], "cart")
   val checkoutActor: ActorRef = system.actorOf(Props[Checkout], "checkout")
 
-  cartActor ! AddItem
-  cartActor ! AddItem
-  cartActor ! RemoveItem
-  cartActor ! AddItem
+  runSuccessfullyPath()
+  //  runCartExpired()
+  //  runCheckoutExpired()
+  //  runPaymentExpired()
 
-  Thread.sleep(200)
+  private def runSuccessfullyPath(): Unit = {
+    cartActor ! AddItem
+    cartActor ! AddItem
+    cartActor ! RemoveItem
+    cartActor ! AddItem
 
-  checkoutActor ! StartCheckout
-  checkoutActor ! SelectDelivery
-  checkoutActor ! SelectPayment
-  checkoutActor ! SendPaymentConfirmation
+    Thread.sleep(200)
+
+    checkoutActor ! StartCheckout(cartActor)
+    checkoutActor ! SelectDelivery
+    checkoutActor ! SelectPayment
+    checkoutActor ! SendPaymentConfirmation
+  }
+
+  private def runCartExpired(): Unit = {
+    cartActor ! AddItem
+    cartActor ! AddItem
+    cartActor ! RemoveItem
+    cartActor ! AddItem
+  }
+
+  private def runCheckoutExpired(): Unit = {
+    cartActor ! AddItem
+
+    Thread.sleep(200)
+
+    checkoutActor ! StartCheckout(cartActor)
+    checkoutActor ! SelectDelivery
+  }
+
+  private def runPaymentExpired(): Unit = {
+    cartActor ! AddItem
+
+    Thread.sleep(200)
+
+    checkoutActor ! StartCheckout(cartActor)
+    checkoutActor ! SelectDelivery
+    checkoutActor ! SelectPayment
+  }
 }
