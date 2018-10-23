@@ -1,5 +1,3 @@
-import Cart._
-import Checkout.{SelectDelivery, SelectPayment, SendPaymentConfirmation}
 import akka.actor.{Actor, ActorRef, ActorSystem, Props, Timers}
 
 import scala.concurrent.duration._
@@ -27,6 +25,9 @@ object Cart {
 }
 
 class Cart extends Actor with Timers {
+
+  import Cart._
+
   override def receive: Receive = {
     case AddItem =>
       println("Item added, item count: 1")
@@ -82,6 +83,10 @@ object Checkout {
 }
 
 class Checkout extends Actor with Timers {
+
+  import Cart.StartCheckout
+  import Checkout._
+
   override def receive: Receive = {
     case StartCheckout(cart: ActorRef) =>
       println("Checkout started in Checkout actor")
@@ -121,6 +126,10 @@ class Checkout extends Actor with Timers {
 }
 
 object ShopApp extends App {
+
+  import Cart._
+  import Checkout._
+
   val system = ActorSystem("Shop")
   val cartActor: ActorRef = system.actorOf(Props[Cart], "cart")
   val checkoutActor: ActorRef = system.actorOf(Props[Checkout], "checkout")
